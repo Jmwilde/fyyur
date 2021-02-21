@@ -1,7 +1,7 @@
 from datetime import datetime
-from flask_wtf import FlaskForm
-from wtforms import StringField, IntegerField, SelectField, SelectMultipleField, DateTimeField, BooleanField
-from wtforms.validators import DataRequired, Optional, AnyOf, URL, Regexp
+from flask_wtf import Form
+from wtforms import StringField, SelectField, SelectMultipleField, DateTimeField, BooleanField
+from wtforms.validators import DataRequired, AnyOf, URL
 
 # def phone_validator(min=-1, max=-1):
 #     len_message = 'Phone number must be between {} and {} characters long.'.format(min, max)
@@ -143,6 +143,17 @@ class VenueForm(FlaskForm):
     seeking_description = StringField(
         'seeking_description'
     )
+    website_link = StringField(
+        'website_link'
+    )
+
+    seeking_talent = BooleanField( 'seeking_talent' )
+
+    seeking_description = StringField(
+        'seeking_description'
+    )
+
+
 
 class ArtistForm(FlaskForm):
     name = StringField(
@@ -233,19 +244,19 @@ class ArtistForm(FlaskForm):
             ('Soul', 'Soul'),
             ('Other', 'Other'),
         ]
-    )
-    image_link = StringField(
-        'image_link', validators=[Optional(), URL()]
-    )
-    website = StringField(
-        'website', validators=[Optional(), URL()]
-    )
+     )
     facebook_link = StringField(
-        'facebook_link', validators=[Optional(), URL()]
-    )
-    seeking_venue = BooleanField(
-        'seeking_venue', default=True
-    )
+        # TODO implement enum restriction
+        'facebook_link', validators=[URL()]
+     )
+
+    website_link = StringField(
+        'website_link'
+     )
+
+    seeking_venue = BooleanField( 'seeking_venue' )
+
     seeking_description = StringField(
-        'seeking_description'
-    )
+            'seeking_description'
+     )
+
