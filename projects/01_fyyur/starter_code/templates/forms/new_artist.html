@@ -22,17 +22,45 @@
       <div class="form-group">
           <label for="phone">Phone</label>
           {{ form.phone(class_ = 'form-control', placeholder='xxx-xxx-xxxx', autofocus = true) }}
-        </div>
+      </div>
       <div class="form-group">
         <label for="genres">Genres</label>
         <small>Ctrl+Click to select multiple</small>
-        {{ form.genres(class_ = 'form-control', placeholder='Genres, separated by commas', id=form.state, autofocus = true) }}
+        {{ form.genres(class_ = 'form-control', placeholder='Genres, separated by commas', id='genres', autofocus = true) }}
       </div>
       <div class="form-group">
-          <label for="genres">Facebook Link</label>
-          {{ form.facebook_link(class_ = 'form-control', placeholder='http://', id=form.state, autofocus = true) }}
+        <label for="image-link">Photo</label>
+        {{ form.image_link(class_ = 'form-control', placeholder='http://', id='image-link', autofocus = true) }}
+      </div>
+      <div class="form-group">
+        <label for="website">Website</label>
+        {{ form.website(class_ = 'form-control', placeholder='http://', id='website', autofocus = true) }}
+      </div>
+      <div class="form-group">
+          <label for="facebook-link">Facebook</label>
+          {{ form.facebook_link(class_ = 'form-control', placeholder='http://', id='facebook-link', autofocus = true) }}
+      </div>
+      <div class="form-group">
+        <label for="seeking-venue">Seeking Venue?</label>
+        {{ form.seeking_venue(id='seeking-venue') }}
+      </div>
+      {% if form.seeking_venue %}
+        <div id="artist-seeking" class="form-group">
+          <label for="seeking-description">Tell Us More</label>
+          {{ form.seeking_description(class_ = 'form-control', placeholder='I am looking for a coffeehouse...', id='seeking-description') }}
         </div>
-      <input type="submit" value="Create Venue" class="btn btn-primary btn-lg btn-block">
+      {% endif %}
+      <input type="submit" value="Create Artist" class="btn btn-primary btn-lg btn-block">
     </form>
+    <script>
+      var seeking_venue_box = document.querySelector("input[id=seeking-venue]");
+      seeking_venue_box.addEventListener('change', function() {
+        if (this.checked) {
+          document.getElementById('artist-seeking').className = 'form-group';
+        } else {
+          document.getElementById('artist-seeking').className = 'form-group hidden';
+        }
+      });
+    </script>
   </div>
 {% endblock %}

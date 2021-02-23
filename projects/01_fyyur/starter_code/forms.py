@@ -1,9 +1,27 @@
 from datetime import datetime
-from flask_wtf import Form
-from wtforms import StringField, SelectField, SelectMultipleField, DateTimeField
-from wtforms.validators import DataRequired, AnyOf, URL
+from flask_wtf import FlaskForm
+from wtforms import StringField, SelectField, SelectMultipleField, DateTimeField, BooleanField
+from wtforms.validators import DataRequired, AnyOf, URL, Regexp
 
-class ShowForm(Form):
+# def phone_validator(min=-1, max=-1):
+#     len_message = 'Phone number must be between {} and {} characters long.'.format(min, max)
+#     non_numeric = 'Phone number cannot contain non-numeric characters.'
+
+#     def _phone_validator(form, field):
+#         if field.data:
+#             phone = field.data.strip('-,._')
+#             l = phone and len(phone) or 0
+#             if l < min or (max != -1 and l > max):
+#                 raise ValidationError(len_message)
+#             if not phone.isnumeric():
+#                 raise ValidationError(non_numeric)
+
+
+#     return _phone_validator
+
+phone_regex = r'^(?:(?:\+?1\s*(?:[.-]\s*)?)?(?:\(\s*([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9])\s*\)|([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9]))\s*(?:[.-]\s*)?)?([2-9]1[02-9]|[2-9][02-9]1|[2-9][02-9]{2})\s*(?:[.-]\s*)?([0-9]{4})(?:\s*(?:#|x\.?|ext\.?|extension)\s*(\d+))?$'
+
+class ShowForm(FlaskForm):
     artist_id = StringField(
         'artist_id'
     )
@@ -16,7 +34,7 @@ class ShowForm(Form):
         default= datetime.today()
     )
 
-class VenueForm(Form):
+class VenueForm(FlaskForm):
     name = StringField(
         'name', validators=[DataRequired()]
     )
@@ -76,20 +94,19 @@ class VenueForm(Form):
             ('WA', 'WA'),
             ('WV', 'WV'),
             ('WI', 'WI'),
-            ('WY', 'WY'),
+            ('WY', 'WY')
         ]
     )
     address = StringField(
         'address', validators=[DataRequired()]
     )
     phone = StringField(
-        'phone'
+        'phone', validators=[Regexp(phone_regex, message='Invalid phone number.')]
     )
     image_link = StringField(
         'image_link'
     )
     genres = SelectMultipleField(
-        # TODO implement enum restriction
         'genres', validators=[DataRequired()],
         choices=[
             ('Alternative', 'Alternative'),
@@ -117,7 +134,7 @@ class VenueForm(Form):
         'facebook_link', validators=[URL()]
     )
 
-class ArtistForm(Form):
+class ArtistForm(FlaskForm):
     name = StringField(
         'name', validators=[DataRequired()]
     )
@@ -181,14 +198,9 @@ class ArtistForm(Form):
         ]
     )
     phone = StringField(
-        # TODO implement validation logic for state
-        'phone'
-    )
-    image_link = StringField(
-        'image_link'
+        'phone', validators=[Regexp(phone_regex, message='Invalid phone number.')]
     )
     genres = SelectMultipleField(
-        # TODO implement enum restriction
         'genres', validators=[DataRequired()],
         choices=[
             ('Alternative', 'Alternative'),
@@ -212,9 +224,20 @@ class ArtistForm(Form):
             ('Other', 'Other'),
         ]
     )
+    image_link = StringField(
+        'image_link',
+    )
+    website = StringField(
+        'website', validators=[URL()]
+    )
     facebook_link = StringField(
-        # TODO implement enum restriction
         'facebook_link', validators=[URL()]
+    )
+    seeking_venue = BooleanField(
+        'seeking_venue', default=True
+    )
+    seeking_description = StringField(
+        'seeking_description'
     )
 
 # TODO IMPLEMENT NEW ARTIST FORM AND NEW SHOW FORM
