@@ -57,11 +57,11 @@ class Venue(db.Model):
     phone = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
+    genres = db.Column(db.String(120)) # json as a string
     website = db.Column(db.String)
     seeking_talent = db.Column(db.Boolean)
     seeking_description = db.Column(db.String)
-    shows = db.relationship("Show", backref="venue", lazy=True, cascade="all, delete-orphan")
-    genres = db.relationship("Genre", secondary=venue_genres, backref="venues", lazy=True)
+    shows = db.relationship("Show", backref="venue")
 
 class Artist(db.Model):
     __tablename__ = 'artist'
@@ -75,16 +75,16 @@ class Artist(db.Model):
     website = db.Column(db.String)
     seeking_venue = db.Column(db.Boolean)
     seeking_description = db.Column(db.String)
-    shows = db.relationship("Show", backref="artist", lazy=True, cascade="all, delete-orphan")
-    genres = db.relationship("Genre", secondary=artist_genres, backref="artists", lazy=True)
+    shows = db.relationship("Show", backref="artist")
 
-# Note: Show is also an association table for artists <-> venues
+# 1 Show -> 1 artist
+# 1 Show -> 1 venue
 class Show(db.Model):
     __tablename__ = 'show'
     id = db.Column(db.Integer, primary_key=True)
-    start_time = db.Column(db.DateTime, nullable=False)
-    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), nullable=False)
-    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), nullable=False)
+    start_time = db.Column(db.DateTime)
+    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'))
+    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'))
     # Note: Show.artist and Show.venue exist via backref
 
 #----------------------------------------------------------------------------#
@@ -102,31 +102,6 @@ def format_datetime(value, format='medium'):
   return babel.dates.format_datetime(date, format, locale='en')
 
 app.jinja_env.filters['datetime'] = format_datetime
-
-# This method does NOT close the session.
-def get_genres(genre_strings):
-  '''Finds and returns genre model instances
-  from the db given a list of genres as strings.'''
-  genres = []
-  err = False
-  try:
-    # Genres that already exist in the db
-    genres = db.session.query(Genre).filter(Genre.name.in_(genre_strings)).all()
-    # New genres not found in the db
-    found = set([g.name for g in genres])
-    not_found = [s for s in genre_strings if s not in found]
-    for s in not_found:
-      new_genre = Genre(name=s)
-      db.session.add(new_genre)
-      genres.append(new_genre)
-    db.session.commit()
-  except Exception as e:
-    db.session.rollback()
-    raise e
-  # Keep session open so we can use the found Genres
-  # finally:
-  #   db.session.close()
-  return genres
 
 def flash_errors(form):
   for field, errors in form.errors.items():
@@ -226,35 +201,42 @@ def create_venue_form():
 
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
-  form = VenueForm(request.form, meta={'csrf':False})
-  error = False
-  if form.validate():
-    venue = {
-      'name': form.name.data, 'city':form.city.data, 'state':form.state.data,
-      'address':form.address.data, 'phone': form.phone.data, 'genres':None,
-      'image_link':form.image_link.data, 'facebook_link':form.facebook_link.data, 'website':form.website.data,
-      'seeking_talent':form.seeking_talent.data, 'seeking_description':form.seeking_description.data
-    }
-    try:
-      venue['genres'] = get_genres(form.genres.data)
-      venue_model = Venue(**venue)
-      db.session.add(venue_model)
-      db.session.commit()
-    except Exception as e:
-      error = True
-      db.session.rollback()
-      print("Error on Venue db model: {}".format(e))
-    finally:
-      db.session.close()
-    if error:
-      flash('An error occurred. Venue could not be listed.')
-      return render_template('forms/new_venue.html', form=form)
-    else:
-      flash('Venue ' + venue['name'] + ' was successfully listed!')
-      return render_template('pages/home.html')
+
+  f = request.form
+  print("Request form: {}").format(f)
+
+  if request.form.validate():
+    print("Successfully validated")
   else:
-    flash_errors(form)
-    return render_template('forms/new_venue.html', form=form)
+    print("Did not validate!")
+  
+  # TODO: insert form data as a new Venue record in the db, instead
+  # TODO: modify data to be the data object returned from db insertion
+  # error = False
+  # body = {}
+  # try:
+  #     new_venue = Venue(name=f.name, city=f.city, state=f.state,
+  #     address=f.address, phone=f.phone, image_link=f.image_link,
+  #     facebook_link=f.facebook_link, genres=f.genres, website=f.website,
+  #     seeking_talent=f.seeking_talent, seeking_description=f.seeking_description
+  #     )
+  #     db.session.add(new_venue)
+  #     db.session.commit()
+  # except:
+  #     error = True
+  #     db.session.rollback()
+  #     print(sys.exc_info)
+  # finally:
+  #     db.session.close()
+  # if error:
+  #     abort(400)
+  # else:
+  #   # on successful db insert, flash success
+  #   flash('Venue ' + request.form['name'] + ' was successfully listed!')
+  # TODO: on unsuccessful db insert, flash an error instead.
+  # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
+  # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
+  return render_template('pages/home.html')
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
@@ -494,16 +476,15 @@ def create_artist_form():
 @app.route('/artists/create', methods=['POST'])
 def create_artist_submission():
   form = ArtistForm(request.form, meta={'csrf':False})
-  error = False
   if form.validate():
+    error = False
     artist = {
       'name': form.name.data, 'city':form.city.data, 'state':form.state.data,
-      'phone': form.phone.data, 'genres':None, 'image_link':form.image_link.data,
+      'phone': form.phone.data, 'genres':form.genres.data, 'image_link':form.image_link.data,
       'facebook_link':form.facebook_link.data, 'website':form.website.data,
       'seeking_venue':form.seeking_venue.data, 'seeking_description':form.seeking_description.data
     }
     try:
-      artist['genres'] = get_genres(form.genres.data)
       artist_model = Artist(**artist)
       db.session.add(artist_model)
       db.session.commit()
