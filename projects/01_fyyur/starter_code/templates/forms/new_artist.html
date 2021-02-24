@@ -44,12 +44,10 @@
         <label for="seeking-venue">Seeking Venue?</label>
         {{ form.seeking_venue(id='seeking-venue') }}
       </div>
-      {% if form.seeking_venue %}
-        <div id="artist-seeking" class="form-group">
-          <label for="seeking-description">Tell Us More</label>
-          {{ form.seeking_description(class_ = 'form-control', placeholder='I am looking for a coffeehouse...', id='seeking-description') }}
-        </div>
-      {% endif %}
+      <div id="artist-seeking" class="form-group">
+        <label for="seeking-description">Tell Us More</label>
+        {{ form.seeking_description(class_ = 'form-control', placeholder='I am looking for a coffeehouse...', id='seeking-description') }}
+      </div>
       <input type="submit" value="Create Artist" class="btn btn-primary btn-lg btn-block">
     </form>
     <script>

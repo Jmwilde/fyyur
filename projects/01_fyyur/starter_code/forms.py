@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask_wtf import FlaskForm
-from wtforms import StringField, SelectField, SelectMultipleField, DateTimeField, BooleanField
+from wtforms import StringField, IntegerField, SelectField, SelectMultipleField, DateTimeField, BooleanField
 from wtforms.validators import DataRequired, AnyOf, URL, Regexp
 
 # def phone_validator(min=-1, max=-1):
@@ -22,16 +22,18 @@ from wtforms.validators import DataRequired, AnyOf, URL, Regexp
 phone_regex = r'^(?:(?:\+?1\s*(?:[.-]\s*)?)?(?:\(\s*([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9])\s*\)|([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9]))\s*(?:[.-]\s*)?)?([2-9]1[02-9]|[2-9][02-9]1|[2-9][02-9]{2})\s*(?:[.-]\s*)?([0-9]{4})(?:\s*(?:#|x\.?|ext\.?|extension)\s*(\d+))?$'
 
 class ShowForm(FlaskForm):
-    artist_id = StringField(
-        'artist_id'
+    # Todo: validate ids
+    artist_id = IntegerField(
+        'artist_id', validators=[DataRequired()]
     )
-    venue_id = StringField(
-        'venue_id'
+    venue_id = IntegerField(
+        'venue_id', validators=[DataRequired()]
     )
     start_time = DateTimeField(
         'start_time',
         validators=[DataRequired()],
-        default= datetime.today()
+        default=datetime.today(),
+        format='%Y-%m-%d %H:%M'
     )
 
 class VenueForm(FlaskForm):
@@ -103,9 +105,6 @@ class VenueForm(FlaskForm):
     phone = StringField(
         'phone', validators=[Regexp(phone_regex, message='Invalid phone number.')]
     )
-    image_link = StringField(
-        'image_link'
-    )
     genres = SelectMultipleField(
         'genres', validators=[DataRequired()],
         choices=[
@@ -130,8 +129,20 @@ class VenueForm(FlaskForm):
             ('Other', 'Other'),
         ]
     )
+    website = StringField(
+        'website', validators=[URL()]
+    )
+    image_link = StringField(
+        'image_link'
+    )
     facebook_link = StringField(
         'facebook_link', validators=[URL()]
+    )
+    seeking_talent = BooleanField(
+        'seeking_talent', default=True
+    )
+    seeking_description = StringField(
+        'seeking_description'
     )
 
 class ArtistForm(FlaskForm):
@@ -239,5 +250,3 @@ class ArtistForm(FlaskForm):
     seeking_description = StringField(
         'seeking_description'
     )
-
-# TODO IMPLEMENT NEW ARTIST FORM AND NEW SHOW FORM

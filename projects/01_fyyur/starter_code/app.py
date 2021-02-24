@@ -9,7 +9,8 @@ from flask import Flask, render_template, request, Response, flash, redirect, ur
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_moment import Moment
-from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import IntegrityError
+from psycopg2.errors import ForeignKeyViolation
 from flask_migrate import Migrate
 import logging
 from logging import Formatter, FileHandler
@@ -28,6 +29,7 @@ migrate = Migrate(app, db)
 #----------------------------------------------------------------------------#
 # Models.
 #----------------------------------------------------------------------------#
+# TODO: Add in Genre class to make tables follow 3rd Normal Form.
 
 # 1 venue -> Many artists
 # 1 venue -> Many shows
@@ -41,7 +43,7 @@ class Venue(db.Model):
     phone = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
-    genres = db.Column(db.String(120)) # json as a string
+    genres = db.Column(db.String(200)) # json as a string
     website = db.Column(db.String)
     seeking_talent = db.Column(db.Boolean)
     seeking_description = db.Column(db.String)
@@ -56,7 +58,7 @@ class Artist(db.Model):
     city = db.Column(db.String(120))
     state = db.Column(db.String(120))
     phone = db.Column(db.String(120))
-    genres = db.Column(db.String(120))
+    genres = db.Column(db.String(200))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
     website = db.Column(db.String)
@@ -241,42 +243,34 @@ def create_venue_form():
 
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
-
-  f = request.form
-  print("Request form: {}").format(f)
-
-  if request.form.validate():
-    print("Successfully validated")
+  form = VenueForm(request.form, meta={'csrf':False})
+  if form.validate():
+    error = False
+    venue = {
+      'name': form.name.data, 'city':form.city.data, 'state':form.state.data,
+      'phone': form.phone.data, 'genres':json.dumps(form.genres.data), 'image_link':form.image_link.data,
+      'facebook_link':form.facebook_link.data, 'website':form.website.data,
+      'seeking_talent':form.seeking_talent.data, 'seeking_description':form.seeking_description.data
+    }
+    try:
+      venue_model = Venue(**venue)
+      db.session.add(venue_model)
+      db.session.commit()
+    except Exception as e:
+      error = True
+      db.session.rollback()
+      print("Error on Artist db model: {}".format(e))
+    finally:
+      db.session.close()
+    if error:
+      flash('An error occurred. Venue could not be listed.')
+      return render_template('forms/new_venue.html', form=form)
+    else:
+      flash('Venue ' + venue['name'] + ' was successfully listed!')
+      return render_template('pages/home.html')
   else:
-    print("Did not validate!")
-  
-  # TODO: insert form data as a new Venue record in the db, instead
-  # TODO: modify data to be the data object returned from db insertion
-  # error = False
-  # body = {}
-  # try:
-  #     new_venue = Venue(name=f.name, city=f.city, state=f.state,
-  #     address=f.address, phone=f.phone, image_link=f.image_link,
-  #     facebook_link=f.facebook_link, genres=f.genres, website=f.website,
-  #     seeking_talent=f.seeking_talent, seeking_description=f.seeking_description
-  #     )
-  #     db.session.add(new_venue)
-  #     db.session.commit()
-  # except:
-  #     error = True
-  #     db.session.rollback()
-  #     print(sys.exc_info)
-  # finally:
-  #     db.session.close()
-  # if error:
-  #     abort(400)
-  # else:
-  #   # on successful db insert, flash success
-  #   flash('Venue ' + request.form['name'] + ' was successfully listed!')
-  # TODO: on unsuccessful db insert, flash an error instead.
-  # e.g., flash('An error occurred. Venue ' + data.name + ' could not be listed.')
-  # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-  return render_template('pages/home.html')
+    flash_errors(form)
+    return render_template('forms/new_venue.html', form=form)
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
@@ -466,10 +460,11 @@ def create_artist_submission():
     error = False
     artist = {
       'name': form.name.data, 'city':form.city.data, 'state':form.state.data,
-      'phone': form.phone.data, 'genres':form.genres.data, 'image_link':form.image_link.data,
+      'phone': form.phone.data, 'genres':json.dumps(form.genres.data), 'image_link':form.image_link.data,
       'facebook_link':form.facebook_link.data, 'website':form.website.data,
       'seeking_venue':form.seeking_venue.data, 'seeking_description':form.seeking_description.data
     }
+    # Todo: json.dumps(genres) before inserting into db
     try:
       artist_model = Artist(**artist)
       db.session.add(artist_model)
@@ -545,15 +540,53 @@ def create_shows():
 
 @app.route('/shows/create', methods=['POST'])
 def create_show_submission():
-  # called to create new shows in the db, upon submitting new show listing form
-  # TODO: insert form data as a new Show record in the db, instead
+  form = ShowForm(request.form, meta={'csrf':False})
+  # Todo: check for existence of foreign keys
+  if form.validate():
+    error = False
+    err_msg = 'An error occurred. Show could not be listed.'
+    show = {
+      'artist_id':form.artist_id.data, 'venue_id':form.venue_id.data, 'start_time':form.start_time.data
+    }
+    try:
+      show_model = Show(**show)
+      db.session.add(show_model)
+      db.session.commit()
+    # except IntegrityError as e:
+    #   print("Statement: ", e.statement)
+    #   print("Params: ", e.params)
+    #   print("Orig: ", e.orig)
+    #   err_msg = 'Integrity error!'
+    #   raise e
+    except Exception as e:
+      # if isinstance(e, IntegrityError):
+      #   print("Integrity Error!")
+      #   print("Statement: ", e.statement)
+      #   print("Params: ", e.params)
+      #   print("Orig: -->{}<--".format(e.orig))
+      #   err_msg = 'Integrity error!'
+      #   if isinstance(e.orig, ForeignKeyViolation):
+      #     print("It's an FK violation!")
+      if e.orig and isinstance(e.orig, ForeignKeyViolation):
+        err_msg = 'Invalid submission. Show must use valid artist and venue ids.'
+      # psycopg2.errors.ForeignKeyViolation
+      # sqlalchemy.exc.IntegrityError
+      #print("Exception class:", e.__class__)
+      error = True
+      db.session.rollback()
+      print("Error on Show db model: {}".format(e))
+    finally:
+      db.session.close()
 
-  # on successful db insert, flash success
-  flash('Show was successfully listed!')
-  # TODO: on unsuccessful db insert, flash an error instead.
-  # e.g., flash('An error occurred. Show could not be listed.')
-  # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
-  return render_template('pages/home.html')
+    if error:
+      flash(err_msg)
+      return render_template('forms/new_show.html', form=form)
+    else:
+      flash('Show was successfully listed!')
+      return render_template('pages/home.html')
+  else:
+    flash_errors(form)
+    return render_template('forms/new_show.html', form=form)
 
 @app.errorhandler(404)
 def not_found_error(error):
