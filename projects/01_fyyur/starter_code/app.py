@@ -30,6 +30,23 @@ migrate = Migrate(app, db)
 # Models.
 #----------------------------------------------------------------------------#
 # TODO: Add in Genre class to make tables follow 3rd Normal Form.
+class Genre(db.Model):
+  __tablename__ = 'genre'
+  id = db.Column(db.Integer, primary_key=True)
+  name = db.Column(db.String(120), nullable=False)
+  # Genre.artists and Genre.venues exist via backref
+
+# Association table for venues to genres
+venue_genres = db.Table('venue_genres',
+    db.Column('venue_id', db.Integer, db.ForeignKey('venue.id'), primary_key=True),
+    db.Column('genre_id', db.Integer, db.ForeignKey('genre.id'), primary_key=True)
+)
+
+# Association table for artists to genres
+artist_genres = db.Table('artist_genres',
+    db.Column('artist_id', db.Integer, db.ForeignKey('artist.id'), primary_key=True),
+    db.Column('genre_id', db.Integer, db.ForeignKey('genre.id'), primary_key=True)
+)
 
 # 1 venue -> Many artists
 # 1 venue -> Many shows
@@ -43,11 +60,11 @@ class Venue(db.Model):
     phone = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
-    genres = db.Column(db.String(200)) # json as a string
     website = db.Column(db.String)
     seeking_talent = db.Column(db.Boolean)
     seeking_description = db.Column(db.String)
     shows = db.relationship("Show", backref="venue")
+    genres = db.relationship("Genre", secondary=venue_genres, backref="venues")
 
 # 1 artist -> many venues
 # 1 artist -> many show
@@ -58,16 +75,17 @@ class Artist(db.Model):
     city = db.Column(db.String(120))
     state = db.Column(db.String(120))
     phone = db.Column(db.String(120))
-    genres = db.Column(db.String(200))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
     website = db.Column(db.String)
     seeking_venue = db.Column(db.Boolean)
     seeking_description = db.Column(db.String)
+    genres = db.relationship("Genre", secondary=artist_genres, backref="artists")
     shows = db.relationship("Show", backref="artist")
 
 # 1 Show -> 1 artist
 # 1 Show -> 1 venue
+# Note: Show is also an association table for artists and venues
 class Show(db.Model):
     __tablename__ = 'show'
     id = db.Column(db.Integer, primary_key=True)
