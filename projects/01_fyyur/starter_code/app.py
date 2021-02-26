@@ -119,14 +119,6 @@ def get_genres(genre_strings):
   genres = []
   err = False
   try:
-    # rows = db.session.query(Genre)
-    # for s in data:
-    #   genre = db.session.query(Genre).filter(Genre.name == s).first()
-    #   if not genre:
-    #     genre = Genre(name=s)
-    #     db.session.add(genre)
-    #   genres.append(genre)
-
     # Genres that already exist in the db
     genres = db.session.query(Genre).filter(Genre.name.in_(genre_strings)).all()
     # New genres not found in the db
@@ -143,7 +135,6 @@ def get_genres(genre_strings):
   finally:
     db.session.close()
   return genres
-
 
 def flash_errors(form):
   for field, errors in form.errors.items():
@@ -166,28 +157,53 @@ def index():
 def venues():
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue.
-  data=[{
-    "city": "San Francisco",
-    "state": "CA",
-    "venues": [{
-      "id": 1,
-      "name": "The Musical Hop",
-      "num_upcoming_shows": 0,
-    }, {
-      "id": 3,
-      "name": "Park Square Live Music & Coffee",
-      "num_upcoming_shows": 1,
-    }]
-  }, {
-    "city": "New York",
-    "state": "NY",
-    "venues": [{
-      "id": 2,
-      "name": "The Dueling Pianos Bar",
-      "num_upcoming_shows": 0,
-    }]
-  }]
-  return render_template('pages/venues.html', areas=data)
+  #rows = db.session.query(Venue).order_by(Venue.city, Venue.state).all()
+  ordered_venues = []
+  
+  now = datetime.now()
+
+  # Get all unique city/state pairs
+  places = Venue.query.distinct(Venue.city, Venue.state).order_by(Venue.state).all()
+  for place in places:
+    print('Unique city/states: {} {}'.format(place.city, place.state))
+    # Venues that match the city and state
+    venues = Venue.query.filter(Venue.city == place.city, Venue.state == place.state).order_by(Venue.state).all()
+    venues_list = []
+    for venue in venues:
+      print('Venue: {} City: {} State: {}'.format(venue.name, place.city, place.state))
+      # If we've got a venue to add, check how many upcoming shows it has
+      # venue_shows = Show.query.filter(venue_id=venue.id).all()
+      num_upcoming = 0
+      for show in venue.shows:
+        if show.start_time > now:
+          num_upcoming += 1
+      venues_list.append({'id': venue.id, 'name': venue.name, 'num_upcoming_shows': num_upcoming})
+    ordered_venues.append({'city':place.city, 'state':place.state, 'venues':venues_list})
+  print("Ordered venues: ", ordered_venues)
+    
+
+  # data=[{
+  #   "city": "San Francisco",
+  #   "state": "CA",
+  #   "venues": [{
+  #     "id": 1,
+  #     "name": "The Musical Hop",
+  #     "num_upcoming_shows": 0,
+  #   }, {
+  #     "id": 3,
+  #     "name": "Park Square Live Music & Coffee",
+  #     "num_upcoming_shows": 1,
+  #   }]
+  # }, {
+  #   "city": "New York",
+  #   "state": "NY",
+  #   "venues": [{
+  #     "id": 2,
+  #     "name": "The Dueling Pianos Bar",
+  #     "num_upcoming_shows": 0,
+  #   }]
+  # }]
+  return render_template('pages/venues.html', areas=ordered_venues)
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
