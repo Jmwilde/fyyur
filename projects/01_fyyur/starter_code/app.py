@@ -53,35 +53,40 @@ artist_genres = db.Table('artist_genres',
 class Venue(db.Model):
     __tablename__ = 'venue'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
+    name = db.Column(db.String, nullable=False)
+    city = db.Column(db.String(120), nullable=False)
+    state = db.Column(db.String(120), nullable=False)
+    address = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    website = db.Column(db.String)
+    facebook_link = db.Column(db.String(120), nullable=False)
+    website = db.Column(db.String, nullable=False)
     seeking_talent = db.Column(db.Boolean)
     seeking_description = db.Column(db.String)
-    shows = db.relationship("Show", backref="venue")
-    genres = db.relationship("Genre", secondary=venue_genres, backref="venues")
+    shows = db.relationship("Show", backref="venue", lazy=True)
+    genres = db.relationship("Genre", secondary=venue_genres, backref="venues", lazy=True)
 
 # 1 artist -> many venues
 # 1 artist -> many show
 class Artist(db.Model):
     __tablename__ = 'artist'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
+    name = db.Column(db.String, nullable=False)
+    city = db.Column(db.String(120), nullable=False)
+    state = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    website = db.Column(db.String)
+    facebook_link = db.Column(db.String(120), nullable=False)
+    website = db.Column(db.String, nullable=False)
     seeking_venue = db.Column(db.Boolean)
     seeking_description = db.Column(db.String)
-    genres = db.relationship("Genre", secondary=artist_genres, backref="artists")
-    shows = db.relationship("Show", backref="artist")
+    shows = db.relationship("Show", backref="artist", lazy=True)
+    genres = db.relationship("Genre", secondary=artist_genres, backref="artists", lazy=True)
+
+    # cascade="all, delete-orphan"
+    # If an artist is deleted:
+    # - Delete all refs in artist_genres
+    # - Delete all shows using the artist_id
 
 # 1 Show -> 1 artist
 # 1 Show -> 1 venue
@@ -89,9 +94,9 @@ class Artist(db.Model):
 class Show(db.Model):
     __tablename__ = 'show'
     id = db.Column(db.Integer, primary_key=True)
-    start_time = db.Column(db.DateTime)
-    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'))
-    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'))
+    start_time = db.Column(db.DateTime, nullable=False)
+    artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), nullable=False)
+    venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), nullable=False)
     # Note: Show.artist and Show.venue exist via backref
 
 #----------------------------------------------------------------------------#
@@ -107,6 +112,38 @@ def format_datetime(value, format='medium'):
   return babel.dates.format_datetime(date, format)
 
 app.jinja_env.filters['datetime'] = format_datetime
+
+def get_genres(genre_strings):
+  '''Finds and returns genre model instances
+  from the db given a list of genres as strings'''
+  genres = []
+  err = False
+  try:
+    # rows = db.session.query(Genre)
+    # for s in data:
+    #   genre = db.session.query(Genre).filter(Genre.name == s).first()
+    #   if not genre:
+    #     genre = Genre(name=s)
+    #     db.session.add(genre)
+    #   genres.append(genre)
+
+    # Genres that already exist in the db
+    genres = db.session.query(Genre).filter(Genre.name.in_(genre_strings)).all()
+    # New genres not found in the db
+    found = set([g.name for g in genres])
+    not_found = [s for s in genre_strings if s not in found]
+    for s in not_found:
+      new_genre = Genre(name=s)
+      db.session.add(new_genre)
+      genres.append(new_genre)
+    db.session.commit()
+  except Exception as e:
+    db.session.rollback()
+    raise e
+  finally:
+    db.session.close()
+  return genres
+
 
 def flash_errors(form):
   for field, errors in form.errors.items():
@@ -266,18 +303,19 @@ def create_venue_submission():
     error = False
     venue = {
       'name': form.name.data, 'city':form.city.data, 'state':form.state.data,
-      'phone': form.phone.data, 'genres':json.dumps(form.genres.data), 'image_link':form.image_link.data,
+      'phone': form.phone.data, 'genres':None, 'image_link':form.image_link.data,
       'facebook_link':form.facebook_link.data, 'website':form.website.data,
       'seeking_talent':form.seeking_talent.data, 'seeking_description':form.seeking_description.data
     }
     try:
+      venue['genres'] = get_genres(form.genres.data)
       venue_model = Venue(**venue)
       db.session.add(venue_model)
       db.session.commit()
     except Exception as e:
       error = True
       db.session.rollback()
-      print("Error on Artist db model: {}".format(e))
+      print("Error on Venue db model: {}".format(e))
     finally:
       db.session.close()
     if error:
@@ -478,12 +516,12 @@ def create_artist_submission():
     error = False
     artist = {
       'name': form.name.data, 'city':form.city.data, 'state':form.state.data,
-      'phone': form.phone.data, 'genres':json.dumps(form.genres.data), 'image_link':form.image_link.data,
+      'phone': form.phone.data, 'genres':None, 'image_link':form.image_link.data,
       'facebook_link':form.facebook_link.data, 'website':form.website.data,
       'seeking_venue':form.seeking_venue.data, 'seeking_description':form.seeking_description.data
     }
-    # Todo: json.dumps(genres) before inserting into db
     try:
+      artist['genres'] = get_genres(form.genres.data)
       artist_model = Artist(**artist)
       db.session.add(artist_model)
       db.session.commit()
@@ -559,7 +597,6 @@ def create_shows():
 @app.route('/shows/create', methods=['POST'])
 def create_show_submission():
   form = ShowForm(request.form, meta={'csrf':False})
-  # Todo: check for existence of foreign keys
   if form.validate():
     error = False
     err_msg = 'An error occurred. Show could not be listed.'
@@ -570,26 +607,9 @@ def create_show_submission():
       show_model = Show(**show)
       db.session.add(show_model)
       db.session.commit()
-    # except IntegrityError as e:
-    #   print("Statement: ", e.statement)
-    #   print("Params: ", e.params)
-    #   print("Orig: ", e.orig)
-    #   err_msg = 'Integrity error!'
-    #   raise e
     except Exception as e:
-      # if isinstance(e, IntegrityError):
-      #   print("Integrity Error!")
-      #   print("Statement: ", e.statement)
-      #   print("Params: ", e.params)
-      #   print("Orig: -->{}<--".format(e.orig))
-      #   err_msg = 'Integrity error!'
-      #   if isinstance(e.orig, ForeignKeyViolation):
-      #     print("It's an FK violation!")
       if e.orig and isinstance(e.orig, ForeignKeyViolation):
         err_msg = 'Invalid submission. Show must use valid artist and venue ids.'
-      # psycopg2.errors.ForeignKeyViolation
-      # sqlalchemy.exc.IntegrityError
-      #print("Exception class:", e.__class__)
       error = True
       db.session.rollback()
       print("Error on Show db model: {}".format(e))
