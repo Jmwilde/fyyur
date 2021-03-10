@@ -74,6 +74,30 @@
 		{% endfor %}
 	</div>
 </section>
+<section>
+	<button id="delete-btn" data-id="{{ venue.id }}" class="monospace">Delete Venue</button>
+</section>
+<script>
+	var deleteBtn = document.querySelector("button[id=delete-btn]");
+	deleteBtn.onclick = function(e) {
+		console.log("Delete button event: ", e);
+		const venueId = e.target.dataset['id'];
+		fetch('/venues/' + venueId, {
+			method: 'DELETE',
+		})
+		.then(function(response) {
+			return response.json();
+		})
+		.then(function(responseJson) {
+			if (responseJson.redirect) {
+				console.log("Redirecting to: ", responseJson.redirect);
+				window.location.href = responseJson.redirect;
+			}
+		})
+		// .then(function(responseJson) {
 
+		// })
+	}
+</script>
 {% endblock %}
 
