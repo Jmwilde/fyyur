@@ -3,6 +3,7 @@ from flask import Flask, request, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import random
+import json
 
 from models import setup_db, Question, Category
 
@@ -87,6 +88,16 @@ def create_app(test_config=None):
   TEST: When you click the trash icon next to a question, the question will be removed.
   This removal will persist in the database and when you refresh the page. 
   '''
+  @app.route('/questions/<int:q_id>', methods=['DELETE'])
+  def delete_question(q_id):
+    try:
+      question = Question.query.get(q_id)
+      question.delete()
+    except:
+      abort(404)
+    return jsonify({
+      'success': True
+    })
 
   '''
   @TODO: 
@@ -98,6 +109,17 @@ def create_app(test_config=None):
   the form will clear and the question will appear at the end of the last page
   of the questions list in the "List" tab.  
   '''
+  @app.route('/questions', methods=['POST'])
+  def create_question():
+    body = json.loads(request.data)
+    try:
+      question = Question(question=body['question'], answer=body['answer'], category=body['category'], difficulty=body['difficulty'])
+      question.insert()
+    except:
+      abort(400)
+    return jsonify({
+      'success': True
+    })
 
   '''
   @TODO: 
