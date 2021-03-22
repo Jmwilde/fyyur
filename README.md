@@ -1,1 +1,1 @@
-This is the public repository for Udacity's Full-Stack Nanodegree program.
+My submission for the Fyyur:Artist Booking Site project for Udacity's Full-Stack Nanodegree program.
