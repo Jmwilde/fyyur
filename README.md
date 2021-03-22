@@ -1,1 +1,1 @@
-My submission for the Fyyur:Artist Booking Site project for Udacity's Full-Stack Nanodegree program.
+My project submissions for Udacity's Full-Stack Nanodegree program.
