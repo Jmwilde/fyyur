@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import random
 import json
+from json.decoder import JSONDecodeError
 
 from models import setup_db, Question, Category
 
@@ -51,7 +52,7 @@ def create_app(test_config=None):
         'categories': formatted_categories
       })
     except:
-      abort(404)
+      abort(400)
 
   '''
   @TODO: 
@@ -81,7 +82,7 @@ def create_app(test_config=None):
         'current_category': paginated_qs[0].category
       })
     except:
-      abort(404)
+      abort(400)
 
   '''
   @TODO: 
@@ -95,14 +96,15 @@ def create_app(test_config=None):
     try:
       question = Question.query.get(q_id)
       if not question:
-        abort(404)
-
+        raise ValueError('Question with id {} does not exist.'.format(q_id))
       question.delete()
       return jsonify({
         'success': True
       })
-    except:
+    except ValueError:
       abort(422)
+    except:
+      abort(400)
 
   '''
   @TODO: 
@@ -126,16 +128,17 @@ def create_app(test_config=None):
   Try using the word "title" to start. 
   '''
   @app.route('/questions', methods=['POST'])
-  def create_or_search_question():
-    body = json.loads(request.data)
-    new_question = body.get('question', None)
-    new_answer = body.get('answer', None)
-    new_category = body.get('category', None)
-    new_difficulty = body.get('difficulty', None)
-    search = body.get('searchTerm', None)
-
+  def create_question():
     try:
+      body = json.loads(request.data)
+      new_question = body.get('question', None)
+      new_answer = body.get('answer', None)
+      new_category = body.get('category', None)
+      new_difficulty = body.get('difficulty', None)
+      search = body.get('searchTerm', None)
+
       if search:
+        print('Search {}'.format(search))
         results = Question.query.filter(Question.question.ilike('%{}%'.format(search))).all()
         questions = paginate(request, results)
         formatted_qs = [q.format() for q in questions]
@@ -144,17 +147,21 @@ def create_app(test_config=None):
           'success': True,
           'questions': formatted_qs,
           'total_questions': len(results),
-          'current_category': questions[0].category
+          'current_category': questions and questions[0].category
         })
       else:
+        if not (new_question and new_answer):
+          raise ValueError('Both question and answer fields must not be None.')
         question = Question(question=new_question, answer=new_answer, category=new_category, difficulty=new_difficulty)
         question.insert()
         return jsonify({
           'success': True
         })
-    except Exception as e:
-      print('Error: ', e)
+    except JSONDecodeError:
       abort(400)
+    except Exception as e:
+      abort(422)
+      print(e)
 
   '''
   @TODO: 
@@ -174,10 +181,10 @@ def create_app(test_config=None):
         'success': True,
         'questions': formatted_qs,
         'total_questions': len(results),
-        'current_category': questions[0].category
+        'current_category': questions and questions[0].category
       })
     except:
-      abort(404)
+      abort(400)
 
   '''
   @TODO: 
@@ -192,11 +199,11 @@ def create_app(test_config=None):
   '''
   @app.route('/quizzes', methods=['POST'])
   def get_quiz_question():
-    body = json.loads(request.data)
-    previous = body.get('previous_questions', [])
-    category = body.get('quiz_category', None)
-
     try:
+      body = json.loads(request.data)
+      previous = body.get('previous_questions', [])
+      category = body.get('quiz_category', None)
+
       if category:
         category_id = category.get('id', 0)
         questions = Question.query.filter(Question.id.notin_(previous), Question.category == category_id).all()
@@ -208,9 +215,10 @@ def create_app(test_config=None):
           'success': True,
           'question': question,
       })
-    except Exception as e:
-      print('Error:', e)
-      abort(404)
+    except JSONDecodeError:
+      abort(400)
+    except:
+      abort(422)
 
   '''
   @TODO: 
@@ -218,7 +226,7 @@ def create_app(test_config=None):
   including 404 and 422. 
   '''
   @app.errorhandler(400)
-  def bad_request():
+  def bad_request(e):
     return jsonify({
       'succes': False,
       'error': 400,
@@ -226,20 +234,28 @@ def create_app(test_config=None):
     }), 400
 
   @app.errorhandler(404)
-  def not_found():
+  def not_found(e):
     return jsonify({
       'success': False,
-      'error': 404
-      'message': 'Question not found.'
+      'error': 404,
+      'message': 'Resource not found.'
     }), 404
   
   @app.errorhandler(422)
-  def unprocessable():
+  def unprocessable(e):
     return jsonify({
       'success': False,
       'error': 422,
-      'message': 'Data within the request body was unable to be processed.'
+      'message': 'Request syntax is correct but lacks semantic meaning. Request body was unable to be processed.'
     }), 422
+
+  @app.errorhandler(405)
+  def method_not_allowed(e):
+    return jsonify({
+      'success': False,
+      'error': 405,
+      'message': 'Given HTTP method is not allowed for this endpoint.'
+    }), 405
 
   return app
 
