@@ -40,8 +40,8 @@ def create_app(test_config=None):
             categories = Category.query.all()
             formatted_categories = {category.id: category.type for category in categories}
             return jsonify({
-            'success': True,
-            'categories': formatted_categories
+                'success': True,
+                'categories': formatted_categories
             })
         except:
             abort(400)
@@ -56,11 +56,11 @@ def create_app(test_config=None):
             categories = Category.query.all()
             formatted_categories = {category.id: category.type for category in categories}
             return jsonify({
-            'success': True,
-            'questions': [q.format() for q in paginated_qs],
-            'total_questions': len(questions),
-            'categories': formatted_categories,
-            'current_category': paginated_qs[0].category
+                'success': True,
+                'questions': [q.format() for q in paginated_qs],
+                'total_questions': len(questions),
+                'categories': formatted_categories,
+                'current_category': paginated_qs[0].category
             })
         except:
             abort(400)
@@ -74,7 +74,8 @@ def create_app(test_config=None):
                 raise ValueError('Question with id {} does not exist.'.format(q_id))
             question.delete()
             return jsonify({
-            'success': True
+                'success': True,
+                'message': 'Question successfully deleted.'
             })
         except ValueError:
             abort(422)
@@ -109,7 +110,8 @@ def create_app(test_config=None):
                 question = Question(question=new_question, answer=new_answer, category=new_category, difficulty=new_difficulty)
                 question.insert()
                 return jsonify({
-                    'success': True
+                    'success': True,
+                    'message': 'Question successfully created.'
                 })
         except JSONDecodeError:
             abort(400)
@@ -125,10 +127,10 @@ def create_app(test_config=None):
             questions = paginate(request, results)
             formatted_qs = [q.format() for q in questions]
             return jsonify({
-            'success': True,
-            'questions': formatted_qs,
-            'total_questions': len(results),
-            'current_category': questions and questions[0].category
+                'success': True,
+                'questions': formatted_qs,
+                'total_questions': len(results),
+                'current_category': questions and questions[0].category
             })
         except:
             abort(400)
